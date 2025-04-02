@@ -36,7 +36,7 @@ class MyHomePageState extends State<MyHomePage> {
   BluetoothDevice? _connectedDevice;
   List<BluetoothService> _services = [];
 
-  _addDeviceTolist(final BluetoothDevice device) {
+  _addDeviceToList(final BluetoothDevice device) {
     if (!widget.devicesList.contains(device)) {
       setState(() {
         widget.devicesList.add(device);
@@ -49,7 +49,7 @@ class MyHomePageState extends State<MyHomePage> {
       (results) {
         if (results.isNotEmpty) {
           for (ScanResult result in results) {
-            _addDeviceTolist(result.device);
+            _addDeviceToList(result.device);
           }
         }
       },
@@ -68,7 +68,7 @@ class MyHomePageState extends State<MyHomePage> {
 
     await FlutterBluePlus.isScanning.where((val) => val == false).first;
     FlutterBluePlus.connectedDevices.map((device) {
-      _addDeviceTolist(device);
+      _addDeviceToList(device);
     });
   }
 
