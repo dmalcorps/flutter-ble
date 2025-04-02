@@ -231,7 +231,7 @@ class MyHomePageState extends State<MyHomePage> {
                     widget.readValues[characteristic.uuid] = value;
                   });
                 });
-                await characteristic.setNotifyValue(true);
+                await characteristic.setNotifyValue(!characteristic.isNotifying);
               },
             ),
           ),
