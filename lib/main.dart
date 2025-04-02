@@ -1,5 +1,7 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
+import 'package:crclib/catalog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -196,8 +198,50 @@ class MyHomePageState extends State<MyHomePage> {
                         actions: <Widget>[
                           TextButton(
                             child: const Text("Send"),
-                            onPressed: () {
-                              characteristic.write(utf8.encode(_writeController.value.text));
+                            onPressed: () async {
+                              Uint8List jsonData = Uint8List.fromList(
+                                  utf8.encode(_writeController.value.text));
+                              int totalLength = jsonData.length;
+
+                              int mtu =
+                                  await characteristic.device.requestMtu(200);
+                              int chunkSize = mtu - 3;
+                              int chunks = (totalLength / chunkSize).ceil();
+
+                              ByteData magicBytes = ByteData(2);
+                              magicBytes.setUint16(0, 0xCAFE, Endian.little);
+                              print('Number of chunks: $chunks');
+
+                              ByteData chunkSizeBytes = ByteData(2);
+                              chunkSizeBytes.setUint16(
+                                  0, totalLength, Endian.little);
+                              print('Number of chunks: $chunks');
+
+                              int checksum =
+                                  Crc32().convert(jsonData).toBigInt().toInt();
+                              Uint8List checksumBytes = Uint8List(4)
+                                ..[3] = (checksum >> 24) & 0xFF
+                                ..[2] = (checksum >> 16) & 0xFF
+                                ..[1] = (checksum >> 8) & 0xFF
+                                ..[0] = checksum & 0xFF;
+                              print('CRC32 checksum: $checksum');
+
+                              Uint8List firstFrame = Uint8List.fromList([
+                                ...magicBytes.buffer.asUint8List(),
+                                ...chunkSizeBytes.buffer.asUint8List(),
+                                ...checksumBytes
+                              ]);
+                              characteristic.write(firstFrame);
+
+                              for (int i = 0; i < totalLength; i += chunkSize) {
+                                int end = (i + chunkSize > totalLength)
+                                    ? totalLength
+                                    : i + chunkSize;
+                                Uint8List chunk = jsonData.sublist(i, end);
+
+                                characteristic.write(chunk);
+                              }
+
                               Navigator.pop(context);
                             },
                           ),
