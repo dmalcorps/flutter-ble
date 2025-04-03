@@ -192,79 +192,193 @@ class MyHomePageState extends State<MyHomePage> {
             child: ElevatedButton(
               child: const Text('WRITE', style: TextStyle(color: Colors.black)),
               onPressed: () async {
-                await showDialog(
-                    context: context,
-                    builder: (BuildContext context) {
-                      return AlertDialog(
-                        title: const Text("Write"),
-                        content: Row(
-                          children: <Widget>[
-                            Expanded(
-                              child: TextField(
-                                controller: _writeController,
+                showDialog(
+                  context: context,
+                  builder: (context) {
+                    String? selectedKey;
+                    TextEditingController textController =
+                        TextEditingController();
+
+                    Map<String, String> jsonFileMap = {
+                      "Broken": "example_settings_broken.json",
+                      "Full": "example_settings_full.json",
+                      "Invalid": "example_settings_invalid.json",
+                      "Partial": "example_settings_part.json"
+                    };
+
+                    return StatefulBuilder(
+                      builder: (context, setState) {
+                        return AlertDialog(
+                          title: Text("Update Device Config"),
+                          content: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              DropdownButtonFormField<String>(
+                                value: selectedKey,
+                                hint: Text("Choose a JSON file"),
+                                onChanged: (value) {
+                                  setState(() {
+                                    selectedKey = value;
+                                  });
+                                },
+                                items: jsonFileMap.keys.map((displayName) {
+                                  return DropdownMenuItem(
+                                    value: displayName,
+                                    child: Text(displayName),
+                                  );
+                                }).toList(),
                               ),
+                              SizedBox(height: 10),
+                              TextField(
+                                controller: _writeController,
+                                decoration: InputDecoration(
+                                  labelText: "Text",
+                                  border: OutlineInputBorder(),
+                                ),
+                              ),
+                            ],
+                          ),
+                          actions: [
+                            TextButton(
+                              onPressed: () => Navigator.pop(context),
+                              child: Text("Cancel"),
+                            ),
+                            ElevatedButton(
+                              onPressed: () async {
+                                String inputText = _writeController.text;
+                                if (selectedKey != null || inputText.isNotEmpty) {
+                                  String dataToSend = (inputText.isEmpty)
+                                      ? await loadJson(jsonFileMap[selectedKey]!)
+                                      : inputText;
+
+                                  Uint8List jsonData = Uint8List.fromList(utf8.encode(dataToSend));
+                                  int totalLength = jsonData.length;
+
+                                  int mtu = await characteristic.device.requestMtu(200);
+                                  int chunkSize = mtu - 3;
+                                  int chunks = (totalLength / chunkSize).ceil();
+
+                                  ByteData magicBytes = ByteData(2);
+                                  magicBytes.setUint16(0, 0xCAFE, Endian.little);
+                                  print('Number of chunks: $chunks');
+
+                                  ByteData chunkSizeBytes = ByteData(2);
+                                  chunkSizeBytes.setUint16(
+                                      0, totalLength, Endian.little);
+                                  print('Number of chunks: $chunks');
+
+                                  int checksum = Crc32().convert(jsonData).toBigInt().toInt();
+                                  Uint8List checksumBytes = Uint8List(4)
+                                    ..[3] = (checksum >> 24) & 0xFF
+                                    ..[2] = (checksum >> 16) & 0xFF
+                                    ..[1] = (checksum >> 8) & 0xFF
+                                    ..[0] = checksum & 0xFF;
+                                  print('CRC32 checksum: $checksum');
+
+                                  Uint8List firstFrame = Uint8List.fromList([
+                                    ...magicBytes.buffer.asUint8List(),
+                                    ...chunkSizeBytes.buffer.asUint8List(),
+                                    ...checksumBytes
+                                  ]);
+                                  characteristic.write(firstFrame);
+
+                                  for (int i = 0; i < totalLength; i += chunkSize) {
+                                    int end = (i + chunkSize > totalLength)
+                                        ? totalLength
+                                        : i + chunkSize;
+                                    Uint8List chunk = jsonData.sublist(i, end);
+
+                                    characteristic.write(chunk);
+                                  }
+                                  Navigator.pop(context);
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                        content: Text("Please choose a file or input text")),
+                                  );
+                                }
+                              },
+                              child: const Text("Send"),
                             ),
                           ],
-                        ),
-                        actions: <Widget>[
-                          TextButton(
-                            child: const Text("Send"),
-                            onPressed: () async {
-                              Uint8List jsonData = Uint8List.fromList(
-                                  utf8.encode(_writeController.value.text));
-                              int totalLength = jsonData.length;
-
-                              int mtu =
-                                  await characteristic.device.requestMtu(200);
-                              int chunkSize = mtu - 3;
-                              int chunks = (totalLength / chunkSize).ceil();
-
-                              ByteData magicBytes = ByteData(2);
-                              magicBytes.setUint16(0, 0xCAFE, Endian.little);
-                              print('Number of chunks: $chunks');
-
-                              ByteData chunkSizeBytes = ByteData(2);
-                              chunkSizeBytes.setUint16(
-                                  0, totalLength, Endian.little);
-                              print('Number of chunks: $chunks');
-
-                              int checksum =
-                                  Crc32().convert(jsonData).toBigInt().toInt();
-                              Uint8List checksumBytes = Uint8List(4)
-                                ..[3] = (checksum >> 24) & 0xFF
-                                ..[2] = (checksum >> 16) & 0xFF
-                                ..[1] = (checksum >> 8) & 0xFF
-                                ..[0] = checksum & 0xFF;
-                              print('CRC32 checksum: $checksum');
-
-                              Uint8List firstFrame = Uint8List.fromList([
-                                ...magicBytes.buffer.asUint8List(),
-                                ...chunkSizeBytes.buffer.asUint8List(),
-                                ...checksumBytes
-                              ]);
-                              characteristic.write(firstFrame);
-
-                              for (int i = 0; i < totalLength; i += chunkSize) {
-                                int end = (i + chunkSize > totalLength)
-                                    ? totalLength
-                                    : i + chunkSize;
-                                Uint8List chunk = jsonData.sublist(i, end);
-
-                                characteristic.write(chunk);
-                              }
-
-                              Navigator.pop(context);
-                            },
-                          ),
-                          TextButton(
-                            child: const Text("Cancel"),
-                            onPressed: () {
-                              Navigator.pop(context);
-                            },
-                          ),
-                        ],
-                      );
-                    });
+                        );
+                      },
+                    );
+                  },
+                );
+                // await showDialog(
+                //     context: context,
+                //     builder: (BuildContext context) {
+                //       return AlertDialog(
+                //         title: const Text("Write"),
+                //         content: Row(
+                //           children: <Widget>[
+                //             Expanded(
+                //               child: TextField(
+                //                 controller: _writeController,
+                //               ),
+                //             ),
+                //           ],
+                //         ),
+                //         actions: <Widget>[
+                //           TextButton(
+                //             child: const Text("Send"),
+                //             onPressed: () async {
+                //               Uint8List jsonData = Uint8List.fromList(
+                //                   utf8.encode(_writeController.value.text));
+                //               int totalLength = jsonData.length;
+                //
+                //               int mtu =
+                //                   await characteristic.device.requestMtu(200);
+                //               int chunkSize = mtu - 3;
+                //               int chunks = (totalLength / chunkSize).ceil();
+                //
+                //               ByteData magicBytes = ByteData(2);
+                //               magicBytes.setUint16(0, 0xCAFE, Endian.little);
+                //               print('Number of chunks: $chunks');
+                //
+                //               ByteData chunkSizeBytes = ByteData(2);
+                //               chunkSizeBytes.setUint16(
+                //                   0, totalLength, Endian.little);
+                //               print('Number of chunks: $chunks');
+                //
+                //               int checksum =
+                //                   Crc32().convert(jsonData).toBigInt().toInt();
+                //               Uint8List checksumBytes = Uint8List(4)
+                //                 ..[3] = (checksum >> 24) & 0xFF
+                //                 ..[2] = (checksum >> 16) & 0xFF
+                //                 ..[1] = (checksum >> 8) & 0xFF
+                //                 ..[0] = checksum & 0xFF;
+                //               print('CRC32 checksum: $checksum');
+                //
+                //               Uint8List firstFrame = Uint8List.fromList([
+                //                 ...magicBytes.buffer.asUint8List(),
+                //                 ...chunkSizeBytes.buffer.asUint8List(),
+                //                 ...checksumBytes
+                //               ]);
+                //               characteristic.write(firstFrame);
+                //
+                //               for (int i = 0; i < totalLength; i += chunkSize) {
+                //                 int end = (i + chunkSize > totalLength)
+                //                     ? totalLength
+                //                     : i + chunkSize;
+                //                 Uint8List chunk = jsonData.sublist(i, end);
+                //
+                //                 characteristic.write(chunk);
+                //               }
+                //
+                //               Navigator.pop(context);
+                //             },
+                //           ),
+                //           TextButton(
+                //             child: const Text("Cancel"),
+                //             onPressed: () {
+                //               Navigator.pop(context);
+                //             },
+                //           ),
+                //         ],
+                //       );
+                //     });
               },
             ),
           ),
@@ -279,14 +393,16 @@ class MyHomePageState extends State<MyHomePage> {
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4),
             child: ElevatedButton(
-              child: const Text('NOTIFY', style: TextStyle(color: Colors.black)),
+              child:
+                  const Text('NOTIFY', style: TextStyle(color: Colors.black)),
               onPressed: () async {
                 characteristic.lastValueStream.listen((value) {
                   setState(() {
                     widget.readValues[characteristic.uuid] = value;
                   });
                 });
-                await characteristic.setNotifyValue(!characteristic.isNotifying);
+                await characteristic
+                    .setNotifyValue(!characteristic.isNotifying);
               },
             ),
           ),
@@ -311,7 +427,8 @@ class MyHomePageState extends State<MyHomePage> {
               children: <Widget>[
                 Row(
                   children: <Widget>[
-                    Text(characteristic.uuid.toString(), style: const TextStyle(fontWeight: FontWeight.bold)),
+                    Text(characteristic.uuid.toString(),
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
                   ],
                 ),
                 Row(
@@ -321,7 +438,9 @@ class MyHomePageState extends State<MyHomePage> {
                 ),
                 Row(
                   children: <Widget>[
-                    Expanded(child: Text('Value: ${widget.readValues[characteristic.uuid]}')),
+                    Expanded(
+                        child: Text(
+                            'Value: ${widget.readValues[characteristic.uuid]}')),
                   ],
                 ),
                 const Divider(),
@@ -331,7 +450,9 @@ class MyHomePageState extends State<MyHomePage> {
         );
       }
       containers.add(
-        ExpansionTile(title: Text(service.uuid.toString()), children: characteristicsWidget),
+        ExpansionTile(
+            title: Text(service.uuid.toString()),
+            children: characteristicsWidget),
       );
     }
 
