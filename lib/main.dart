@@ -74,6 +74,17 @@ class MyHomePageState extends State<MyHomePage> {
     });
   }
 
+  Future<String> loadJson(String filename) async {
+    try {
+      String jsonString = await rootBundle.loadString('assets/$filename');
+      print("Loaded JSON file ($filename): \n$jsonString");
+      return jsonString;
+    } catch (e) {
+      print("Error loading JSON file: $e");
+      return "";
+    }
+  }
+
   @override
   void initState() {
     () async {
