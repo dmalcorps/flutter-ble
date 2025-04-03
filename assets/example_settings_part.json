@@ -1,0 +1,16 @@
+{
+    "network": {
+        "interfaces": [
+            {
+                "interface": "wifi",
+                "enabled": true,
+                "dhcp4": true,
+                "wifi": {
+                    "ssid": "dd-wrt",
+                    "password": "",
+                    "authenticationMode": "WPA2"
+                }
+            }
+        ]
+    }
+}

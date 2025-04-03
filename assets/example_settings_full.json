@@ -1,0 +1,84 @@
+{
+    "modbus": {
+        "slave": {
+            "address": 1,
+            "uart": {
+                "baudRate": 9600,
+                "dataBits": 8,
+                "parity": "None",
+                "stopBits": 1
+            }
+        },
+        "master": {
+            "uart": {
+                "baudRate": 9600,
+                "dataBits": 8,
+                "parity": "None",
+                "stopBits": 1
+            }
+        },
+        "monitor": {
+            "interval": 20,
+            "queries": [
+                {
+                    "slaveAddress": [
+                        1,
+                        2
+                    ],
+                    "registers": [
+                        {
+                            "type": "Holding",
+                            "address": "0xD001",
+                            "quantityOfRegisters": 2
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "cloud": {
+        "namespace": "exampleNamespace",
+        "projectId": "exampleProjectId",
+        "deviceId": "exampleDeviceId"
+    },
+    "network": {
+        "interfaces": [
+            {
+                "interface": "wifi",
+                "enabled": true,
+                "dhcp4": true,
+                "wifi": {
+                    "ssid": "example_ssid",
+                    "password": "example_password",
+                    "authenticationMode": "WPA2"
+                }
+            },
+            {
+                "interface": "ethernet",
+                "enabled": false,
+                "dhcp4": false,
+                "ip": {
+                    "address": "192.168.1.100",
+                    "subnetMask": "255.255.255.0",
+                    "gateway": "192.168.1.1",
+                    "dns": [
+                        "8.8.8.8",
+                        "8.8.4.4"
+                    ]
+                }
+            }
+        ]
+    },
+    "mqtt": {
+        "management": {
+            "url": "mqtt://broker.url",
+            "username": "user",
+            "password": "password"
+        },
+        "telemetry": {
+            "url": "mqtt://broker.url",
+            "username": "user",
+            "password": "password"
+        }
+    }
+}

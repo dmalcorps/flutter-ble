@@ -1,0 +1,77 @@
+{
+    "modbus": {
+        "slave": {
+            "address": 1,
+            "uart": {
+                "baudRate": "9600",
+                "dataBits": 8,
+                "parity": "None",
+                "stopBits": 1
+            }
+        },
+        "master": {
+            "uart": {
+                "baudRate": 123,
+                "dataBits": 8,
+                "parity": "None",
+                "stopBits": 0.6
+            }
+        },
+        "monitor": {
+            "interval": 20,
+            "queries": [
+                {
+                    "slaveAddress": "asd",
+                    "registers": [
+                        {
+                            "type": "Holding",
+                            "address": "0xD001",
+                            "quantityOfRegisters": 2
+                        }
+                    ]
+                }
+            ]
+        }
+    },
+    "cloud": {
+    },
+    "network": {
+        "interfaces": [
+            {
+                "interface": "nbiot",
+                "enabled": true,
+                "dhcp4": true,
+                "wifi": {
+                    "ssid": "example_ssid",
+                    "password": "example_password",
+                    "authenticationMode": "WPA2"
+                }
+            },
+            {
+                "interface": "ethernet",
+                "enabled": false,
+                "ip": {
+                    "address": "192.168.1.100",
+                    "subnetMask": "255.255.255.0",
+                    "gateway": "192.168.1.1",
+                    "dns": [
+                        "8.8.8.8",
+                        "8.8.4.4"
+                    ]
+                }
+            }
+        ]
+    },
+    "mqtt": {
+        "management": {
+            "url": "mqtt://broker.url",
+            "username": "user",
+            "password": "password"
+        },
+        "telemetry": {
+            "url": "mqtt://broker.url",
+            "username": "user",
+            "password": "password"
+        }
+    }
+}
